@@ -1,4 +1,5 @@
-# Builds a signed APK and publishes a GitHub Release when a tag like v1.2.3 is pushed.
+# Builds a signed APK and publishes a GitHub Release, either when a tag like v1.2.3 is
+# pushed, or from the Actions tab ("Run workflow", enter a version like 1.2.3).
 # The in-app updater reads the latest release and installs its .apk asset.
 #
 # Required repository secrets (Settings > Secrets and variables > Actions):
@@ -11,6 +12,14 @@ name: Release APK
 on:
   push:
     tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, e.g. 1.0.1 (creates the tag v1.0.1)"
+        required: true
+
+env:
+  TAG: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
 
 permissions:
   contents: write
@@ -20,6 +29,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+
+      - name: Check version
+        run: |
+          V="${TAG#v}"; V="${V#v}"; TAG="v$V"  # accepts 1.0.1 or v1.0.1
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Bad version '$TAG' (expected 1.2.3)"; exit 1; }
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
 
       - uses: actions/setup-java@v5
         with:
@@ -47,13 +62,14 @@ jobs:
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          ./gradlew assembleRelease -PappVersion="$VERSION" -PgithubRepo="$GITHUB_REPOSITORY"
+          ./gradlew assembleRelease -PappVersion="${TAG#v}" -PgithubRepo="$GITHUB_REPOSITORY"
           mkdir -p dist
-          cp app/build/outputs/apk/release/app-release.apk "dist/SuperTFT-$GITHUB_REF_NAME.apk"
-          "$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs "dist/SuperTFT-$GITHUB_REF_NAME.apk" | head -3
+          cp app/build/outputs/apk/release/app-release.apk "dist/SuperTFT-$TAG.apk"
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
+          "$APKSIGNER" verify --print-certs "dist/SuperTFT-$TAG.apk" | head -3
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/*.apk --title "Super TFT $GITHUB_REF_NAME" --generate-notes
+        # --target creates the tag on this commit when it does not exist yet (manual run).
+        run: gh release create "$TAG" dist/*.apk --target "$GITHUB_SHA" --title "Super TFT $TAG" --generate-notes

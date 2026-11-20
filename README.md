@@ -46,14 +46,16 @@ tag vX.Y.Z  ──(GitHub Action)──►  APK signé dans GitHub Releases  ─
 ## Publier une nouvelle version
 
 1. **Une seule fois** : ajouter les 4 secrets de signature dans *Settings → Secrets and variables → Actions* : `SIGNING_KEYSTORE_BASE64`, `SIGNING_STORE_PASSWORD`, `SIGNING_KEY_ALIAS`, `SIGNING_KEY_PASSWORD`. **Garde le fichier `.jks` et le mot de passe** : sans la même clé, les mises à jour ne s'installent plus par-dessus.
-2. Créer et pousser un tag :
+2. Onglet **Actions** → **Release APK** → **Run workflow** → taper la version (ex. `1.0.2`). Le workflow crée le tag `v1.0.2`, compile et publie la Release.
+
+   Ou, en ligne de commande, pousser un tag :
 
 ```bash
-git tag v1.0.1
+git tag v1.0.2
 ```
 
 ```bash
-git push origin v1.0.1
+git push origin v1.0.2
 ```
 
 L'app installée détecte la nouvelle Release au prochain lancement.
