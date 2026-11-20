@@ -88,6 +88,7 @@ class MainActivity : ComponentActivity() {
                                 onSettings = { settings = true },
                                 onToggleOverlay = ::toggleOverlay,
                                 onGrant = ::requestOverlayPermission,
+                                onAppInfo = ::openAppInfo,
                             )
                         }
                     }
@@ -100,6 +101,11 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         canDraw.value = OverlayService.canDraw(this)
         DataRepository.refresh(force = false)
+    }
+
+    /** App info page: its ⋮ menu holds "Allow restricted settings" on Android 13+. */
+    private fun openAppInfo() {
+        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
     }
 
     private fun requestOverlayPermission() {
@@ -137,7 +143,13 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun HomeHeader(canDraw: Boolean, onSettings: () -> Unit, onToggleOverlay: () -> Unit, onGrant: () -> Unit) {
+private fun HomeHeader(
+    canDraw: Boolean,
+    onSettings: () -> Unit,
+    onToggleOverlay: () -> Unit,
+    onGrant: () -> Unit,
+    onAppInfo: () -> Unit,
+) {
     val running by OverlayService.running.collectAsState()
     val state by DataRepository.state.collectAsState()
     val data = (state as? DataRepository.State.Ready)?.index?.data
@@ -176,6 +188,16 @@ private fun HomeHeader(canDraw: Boolean, onSettings: () -> Unit, onToggleOverlay
                 Text(stringResource(R.string.overlay_permission_title), color = Tft.Gold, fontWeight = FontWeight.Bold)
                 Text(stringResource(R.string.overlay_permission_desc), color = Tft.Text, fontSize = 13.sp)
                 Button(onClick = onGrant, modifier = Modifier.padding(top = 8.dp)) { Text(stringResource(R.string.grant)) }
+                // Android 13+ blocks this permission for sideloaded APKs until "restricted settings" are allowed.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    Text(
+                        stringResource(R.string.restricted_help), color = Tft.Muted, fontSize = 12.sp, lineHeight = 17.sp,
+                        modifier = Modifier.padding(top = 10.dp),
+                    )
+                    OutlinedButton(onClick = onAppInfo, modifier = Modifier.padding(top = 6.dp)) {
+                        Text(stringResource(R.string.open_app_info))
+                    }
+                }
             }
         } else if (running) {
             Text(

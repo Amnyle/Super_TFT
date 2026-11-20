@@ -69,4 +69,6 @@
     <string name="notif_text">Super TFT overlay is running</string>
     <string name="source_credit">Data: TFT Academy (tftacademy.com). Not affiliated with Riot Games or TFT Academy.</string>
     <string name="version">Version %1$s</string>
+    <string name="restricted_help">Says “App was denied access” / “Restricted setting”? Android blocks this for apps installed from an APK. Fix: tap the button below, then the ⋮ menu (top right) → “Allow restricted settings”, confirm, come back and tap Allow again.</string>
+    <string name="open_app_info">Open app info</string>
 </resources>
