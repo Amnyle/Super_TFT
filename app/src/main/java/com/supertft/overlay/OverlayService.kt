@@ -80,10 +80,20 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner {
         private const val NOTIF_ID = 1
         private const val ACTION_STOP = "com.supertft.STOP_OVERLAY"
 
+        /**
+         * Windows added by a service are software-rendered unless they ask for the GPU, and
+         * Compose content then stops redrawing after the first frame (the panel looked frozen).
+         */
+        private const val HW = WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+
         private val _running = MutableStateFlow(false)
         val running: StateFlow<Boolean> = _running.asStateFlow()
 
         fun canDraw(context: Context) = Settings.canDrawOverlays(context)
+
+        /** Test hook: the running service. */
+        @androidx.annotation.VisibleForTesting
+        internal var current: OverlayService? = null
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, OverlayService::class.java))
@@ -98,9 +108,9 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner {
     override val savedStateRegistry: SavedStateRegistry get() = savedStateController.savedStateRegistry
 
     private lateinit var wm: WindowManager
-    private var bubble: View? = null
+    internal var bubble: View? = null
     private var bubbleParams: WindowManager.LayoutParams? = null
-    private var panel: View? = null
+    internal var panel: View? = null
     private var panelParams: WindowManager.LayoutParams? = null
     private var panelShown = false
     private var closeTarget: View? = null
@@ -118,6 +128,7 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner {
         DataRepository.init(this)
         DataRepository.refresh(force = false)
         _running.value = true
+        current = this
         // Pinned comp mini overlay follows the pinned id and the data.
         lifecycleScope.launch {
             combine(Prefs.pinned, DataRepository.state) { id, state -> id != null && state is DataRepository.State.Ready }
@@ -190,7 +201,7 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner {
         val (x, y) = Prefs.bubblePosition()
         val params = WindowManager.LayoutParams(
             size, size, overlayType(),
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            HW or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -329,7 +340,7 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner {
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, overlayType(),
             // Never takes focus or blocks the game outside its own small area.
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            HW or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.END
@@ -403,7 +414,7 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner {
         return WindowManager.LayoutParams(
             pw, ph, overlayType(),
             // Not touch-modal: touches outside the panel still reach the game.
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            HW or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or (if (bubbleOnRight) Gravity.END else Gravity.START)

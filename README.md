@@ -72,10 +72,12 @@ python3 scraper/fetch_tft_academy.py app/src/main/assets/tft.json
 ./gradlew assembleDebug testDebugUnitTest
 ```
 
-Captures d'écran (Paparazzi, rendu JVM sans émulateur) :
+`testDebugUnitTest` lance aussi `OverlayTest` (Robolectric) : il démarre le vrai service d'overlay, touche la bulle puis les onglets du panneau.
+
+Captures d'écran (Paparazzi, rendu JVM sans émulateur, à lancer séparément car incompatible avec Robolectric) :
 
 ```bash
-./gradlew recordPaparazziDebug
+./gradlew recordPaparazziDebug -Pscreenshots
 ```
 
 Pour signer en local, créer `keystore.properties` à la racine (ignoré par git) avec `storeFile`, `storePassword`, `keyAlias` et `keyPassword`.

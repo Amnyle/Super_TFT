@@ -16,6 +16,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - run: python3 scraper/fetch_tft_academy.py app/src/main/assets/tft.json
       - run: ./gradlew assembleDebug testDebugUnitTest
+      - name: Screenshot tests (Paparazzi)
+        run: ./gradlew testDebugUnitTest -Pscreenshots
       - uses: actions/upload-artifact@v4
         with:
           name: SuperTFT-debug

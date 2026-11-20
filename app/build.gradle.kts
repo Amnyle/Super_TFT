@@ -5,8 +5,13 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.paparazzi)
 }
+
+// Paparazzi (screenshots) and Robolectric (overlay behaviour) cannot share a test run:
+//   ./gradlew testDebugUnitTest                  -> unit + Robolectric overlay tests
+//   ./gradlew recordPaparazziDebug -Pscreenshots -> screenshot images
+val screenshots = hasProperty("screenshots")
+if (screenshots) apply(plugin = "app.cash.paparazzi")
 
 // Version comes from the git tag in CI: ./gradlew assembleRelease -PappVersion=1.2.3
 val appVersion: String = (findProperty("appVersion") as String?)?.removePrefix("v") ?: "0.0.1"
@@ -80,7 +85,13 @@ android {
         buildConfig = true
     }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+    sourceSets["test"].java.srcDir(if (screenshots) "src/testScreenshots/java" else "src/testRobolectric/java")
+    testOptions.unitTests.isIncludeAndroidResources = true
     testOptions.unitTests.all {
+        // Optional local folder holding Robolectric's android-all jars (offline runs).
+        System.getenv("ROBO_DIR")?.let { d ->
+            it.systemProperty("robolectric.offline", "true"); it.systemProperty("robolectric.dependency.dir", d)
+        }
         // Optional: folder of downloaded icons so screenshot tests show real images.
         System.getenv("SUPERTFT_ICONS")?.let { dir -> it.systemProperty("supertft.icons", dir) }
     }
@@ -102,4 +113,10 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.coil.compose)
     testImplementation(libs.junit)
+    if (!screenshots) {
+        testImplementation(libs.robolectric)
+        testImplementation(libs.androidx.test.core)
+        testImplementation(platform(libs.compose.bom))
+        testImplementation(libs.compose.ui.test)
+    }
 }
