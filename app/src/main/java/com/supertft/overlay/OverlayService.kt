@@ -53,13 +53,18 @@ import com.supertft.MainActivity
 import com.supertft.R
 import com.supertft.data.DataRepository
 import com.supertft.data.Prefs
+import com.supertft.ui.PinnedMini
 import com.supertft.ui.TftBrowser
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import com.supertft.ui.theme.SuperTftTheme
 import com.supertft.ui.theme.Tft
 import com.supertft.util.LocaleHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -99,6 +104,7 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner {
     private var panelParams: WindowManager.LayoutParams? = null
     private var panelShown = false
     private var closeTarget: View? = null
+    private var mini: View? = null
 
     override fun attachBaseContext(base: Context) {
         super.attachBaseContext(LocaleHelper.wrap(base))
@@ -112,6 +118,12 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner {
         DataRepository.init(this)
         DataRepository.refresh(force = false)
         _running.value = true
+        // Pinned comp mini overlay follows the pinned id and the data.
+        lifecycleScope.launch {
+            combine(Prefs.pinned, DataRepository.state) { id, state -> id != null && state is DataRepository.State.Ready }
+                .distinctUntilChanged()
+                .collect { show -> if (show) showMini() else hideMini() }
+        }
         lifecycleScope.launch {
             Prefs.overlayOpacity.collect { a -> panelParams?.let { it.alpha = a; if (panelShown) wm.updateViewLayout(panel, it) } }
         }
@@ -235,6 +247,7 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner {
         wm.addView(view, params)
         bubble = view
         bubbleParams = params
+        if (Prefs.pinned.value != null && DataRepository.state.value is DataRepository.State.Ready) showMini()
     }
 
     private fun screenSize(): Pair<Int, Int> {
@@ -287,6 +300,49 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner {
         val cy = h - dp(32) - dp(32).toFloat()
         val r = dp(70)
         return abs(rawX - cx) < r && abs(rawY - cy) < r
+    }
+
+    // ---------------------------------------------------------------- pinned mini overlay
+
+    /** Small card at the top right with the pinned comp's carries and items. */
+    private fun showMini() {
+        if (mini != null || bubble == null) return
+        val compose = ComposeView(this).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnLifecycleDestroyed(lifecycle))
+            setContent {
+                val state by DataRepository.state.collectAsState()
+                val pinned by Prefs.pinned.collectAsState()
+                val index = (state as? DataRepository.State.Ready)?.index
+                val comp = index?.data?.comps?.firstOrNull { it.id == pinned }
+                if (index != null && comp != null) {
+                    SuperTftTheme {
+                        PinnedMini(index, comp, onOpen = { showPanel() }, onUnpin = { Prefs.setPinned(null) })
+                    }
+                }
+            }
+        }
+        val root = FrameLayout(this).apply {
+            addView(compose)
+            setViewTreeLifecycleOwner(this@OverlayService)
+            setViewTreeSavedStateRegistryOwner(this@OverlayService)
+        }
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, overlayType(),
+            // Never takes focus or blocks the game outside its own small area.
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.END
+            x = dp(8)
+            y = dp(8)
+        }
+        wm.addView(root, params)
+        mini = root
+    }
+
+    private fun hideMini() {
+        mini?.let { runCatching { wm.removeView(it) } }
+        mini = null
     }
 
     // ---------------------------------------------------------------- panel
@@ -388,6 +444,7 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner {
     }
 
     override fun onDestroy() {
+        hideMini()
         hidePanel()
         hideCloseTarget()
         bubble?.let { runCatching { wm.removeView(it) } }

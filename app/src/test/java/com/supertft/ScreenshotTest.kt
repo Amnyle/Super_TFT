@@ -18,6 +18,7 @@ import com.supertft.data.DataRepository
 import com.supertft.data.TftData
 import com.supertft.data.TftIndex
 import com.supertft.ui.LocalCompact
+import com.supertft.ui.PinnedMini
 import com.supertft.ui.TftBrowser
 import com.supertft.ui.components.LocalImageOverride
 import com.supertft.ui.screens.AugmentsScreen
@@ -83,6 +84,8 @@ class ScreenshotTest {
     @Test fun augments() = shot { AugmentsScreen(it, "") }
 
     @Test fun traits() = shot { TraitsScreen(it, "") }
+
+    @Test fun pinnedMini() = shot { PinnedMini(it, it.data.comps.first(), onOpen = {}, onUnpin = {}) }
 
     @Test fun overlayLandscape() {
         paparazzi.unsafeUpdateConfig(

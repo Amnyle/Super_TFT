@@ -25,6 +25,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -36,7 +37,9 @@ import com.supertft.data.Prefs
 import com.supertft.data.TftIndex
 import com.supertft.ui.ChipRow
 import com.supertft.ui.LocalCompact
+import com.supertft.ui.togglePin
 import com.supertft.ui.components.ChampionIcon
+import com.supertft.ui.components.PinButton
 import com.supertft.ui.components.TierBadge
 import com.supertft.ui.theme.Tft
 
@@ -45,6 +48,7 @@ private val TIER_ORDER = listOf("S", "A", "B", "C", "X")
 @Composable
 fun CompsScreen(index: TftIndex, query: String, onOpen: (String) -> Unit) {
     val favorites by Prefs.favorites.collectAsState()
+    val pinned by Prefs.pinned.collectAsState()
     val allLabel = stringResource(R.string.filter_all)
     val favLabel = stringResource(R.string.filter_favorites)
     val styles = remember(index) { index.data.comps.map { it.style }.filter { it.isNotEmpty() }.distinct().sorted() }
@@ -82,7 +86,7 @@ fun CompsScreen(index: TftIndex, query: String, onOpen: (String) -> Unit) {
                     }
                 }
                 items(list, key = { it.id }) { c ->
-                    CompCard(index, c, c.id in favorites, onClick = { onOpen(c.id) })
+                    CompCard(index, c, c.id in favorites, c.id == pinned, onClick = { onOpen(c.id) })
                 }
             }
         }
@@ -91,13 +95,18 @@ fun CompsScreen(index: TftIndex, query: String, onOpen: (String) -> Unit) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CompCard(index: TftIndex, comp: Comp, favorite: Boolean, onClick: () -> Unit) {
+private fun CompCard(index: TftIndex, comp: Comp, favorite: Boolean, pinned: Boolean, onClick: () -> Unit) {
     val compact = LocalCompact.current
+    val context = LocalContext.current
     val iconSize = if (compact) 30.dp else 36.dp
     Column(
         Modifier.fillMaxWidth()
             .background(Tft.Surface, RoundedCornerShape(10.dp))
-            .border(1.dp, if (favorite) Tft.Gold.copy(alpha = 0.6f) else Tft.Border, RoundedCornerShape(10.dp))
+            .border(
+                if (pinned) 2.dp else 1.dp,
+                if (pinned || favorite) Tft.Gold.copy(alpha = if (pinned) 1f else 0.6f) else Tft.Border,
+                RoundedCornerShape(10.dp),
+            )
             .clickable(onClick = onClick)
             .padding(10.dp),
     ) {
@@ -113,6 +122,7 @@ private fun CompCard(index: TftIndex, comp: Comp, favorite: Boolean, onClick: ()
                     color = Tft.Muted, fontSize = 12.sp,
                 )
             }
+            PinButton(pinned) { togglePin(context, index, comp) }
             Text(
                 if (favorite) "★" else "☆", color = if (favorite) Tft.Gold else Tft.Muted, fontSize = 22.sp,
                 modifier = Modifier.clickable { Prefs.toggleFavorite(comp.id) }.padding(4.dp),

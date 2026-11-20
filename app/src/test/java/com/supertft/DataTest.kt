@@ -46,6 +46,22 @@ class DataTest {
         assertEquals(0, traits.first { it.trait.id == "t_mage" }.level)
     }
 
+    @Test
+    fun teamCodeFormat() {
+        val data = json.decodeFromString(
+            TftData.serializer(),
+            """
+            {"set":18,"champions":[
+              {"id":"a","name":"A","hex":"3EA","traits":["t"]},
+              {"id":"b","name":"B","hex":"411","traits":["t"]},
+              {"id":"summon","name":"Tree","hex":"","traits":[]}],
+             "comps":[{"id":"c","board":[{"id":"a"},{"id":"summon"},{"id":"b"}]}]}
+            """.trimIndent(),
+        )
+        val index = TftIndex(data)
+        assertEquals("02" + "3EA411" + "0".repeat(24) + "TFTSet18", index.teamCode(index.data.comps[0]))
+    }
+
     /** Parses the real snapshot produced by the scraper (skipped if it has not been generated). */
     @Test
     fun realSnapshotParsesAndResolves() {
@@ -57,6 +73,9 @@ class DataTest {
             for (u in comp.board) assertTrue("unknown champion ${u.id}", u.id in index.champions)
             for (u in comp.board) for (i in u.items) assertTrue("unknown item $i", i in index.items)
             assertTrue("no active trait in ${comp.title}", index.activeTraits(comp.board).any { it.level > 0 })
+            val code = index.teamCode(comp)
+            assertTrue("bad team code $code", code != null && Regex("^02[0-9A-F]{30}TFTSet\\d+$").matches(code))
+            assertTrue("no carries in ${comp.title}", index.carries(comp).isNotEmpty())
         }
         // Every craftable item is reachable from the recipe matrix.
         val craftables = index.data.items.filter { it.from.size == 2 }

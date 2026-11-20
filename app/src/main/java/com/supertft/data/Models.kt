@@ -61,6 +61,7 @@ data class Champion(
     val id: String,
     val name: String,
     val cost: Int = 0,
+    val hex: String = "",
     val role: String = "",
     val traits: List<String> = emptyList(),
     val abilityName: String = "",
@@ -150,6 +151,28 @@ class TftIndex(val data: TftData) {
                 .thenByDescending { STYLE_RANK[it.color] ?: 0 }
                 .thenByDescending { it.count }
         )
+    }
+
+    /**
+     * In-game Team Planner code (same format as TFT Academy's "copy team code"):
+     * "02" + up to 10 champion hex ids (3 chars each, zero padded to 30) + "TFTSet<set>".
+     * Paste it in TFT: Team Planner > import from clipboard.
+     */
+    fun teamCode(comp: Comp): String? {
+        val ids = comp.board.mapNotNull { champions[it.id] }
+            .filter { it.traits.isNotEmpty() && it.hex.isNotEmpty() }
+            .map { it.hex.padStart(3, '0').take(3) }
+            .distinct()
+            .take(10)
+        if (ids.isEmpty() || data.set == 0) return null
+        return "02" + ids.joinToString("").padEnd(30, '0') + "TFTSet${data.set}"
+    }
+
+    /** Units shown in the pinned mini overlay: carries with items, most items first. */
+    fun carries(comp: Comp): List<CompUnit> {
+        val withItems = comp.board.filter { it.items.isNotEmpty() }
+            .sortedWith(compareByDescending<CompUnit> { it.items.size }.thenByDescending { champions[it.id]?.cost ?: 0 })
+        return withItems.ifEmpty { comp.board.filter { it.id == comp.main } }
     }
 
     /** Components ("from" recipes) for the items cheat sheet. */

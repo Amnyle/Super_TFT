@@ -88,6 +88,7 @@ def main(out_path):
             "id": c["apiName"],
             "name": c["name"],
             "cost": c.get("cost") or 0,
+            "hex": c.get("hexIndex") or "",  # Team Planner id, used to build team codes
             "role": c.get("role") or "",
             "traits": list((c.get("traitContributions") or {}).keys()),
             "abilityName": c.get("abilityName") or "",

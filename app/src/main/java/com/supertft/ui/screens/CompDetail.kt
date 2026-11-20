@@ -18,12 +18,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -36,11 +38,14 @@ import com.supertft.data.CompUnit
 import com.supertft.data.Prefs
 import com.supertft.data.TftIndex
 import com.supertft.ui.LocalCompact
+import com.supertft.ui.copyTeamCode
+import com.supertft.ui.togglePin
 import com.supertft.ui.LocalShowInfo
 import com.supertft.ui.components.AugmentIcon
 import com.supertft.ui.components.ChampionIcon
 import com.supertft.ui.components.HexBoard
 import com.supertft.ui.components.ItemIcon
+import com.supertft.ui.components.PinButton
 import com.supertft.ui.components.SectionTitle
 import com.supertft.ui.components.TierBadge
 import com.supertft.ui.components.TraitChip
@@ -51,6 +56,8 @@ import com.supertft.ui.theme.Tft
 fun CompDetail(index: TftIndex, comp: Comp, onBack: () -> Unit) {
     val favorites by Prefs.favorites.collectAsState()
     val fav = comp.id in favorites
+    val pinned by Prefs.pinned.collectAsState()
+    val context = LocalContext.current
     val showInfo = LocalShowInfo.current
     val item = itemInfo(index)
     val augment = augmentInfo(index)
@@ -74,6 +81,7 @@ fun CompDetail(index: TftIndex, comp: Comp, onBack: () -> Unit) {
                     color = Tft.Muted, fontSize = 12.sp,
                 )
             }
+            PinButton(pinned == comp.id) { togglePin(context, index, comp) }
             Text(
                 if (fav) "★" else "☆", color = if (fav) Tft.Gold else Tft.Muted, fontSize = 24.sp,
                 modifier = Modifier.clickable { Prefs.toggleFavorite(comp.id) }.padding(8.dp),
@@ -83,6 +91,12 @@ fun CompDetail(index: TftIndex, comp: Comp, onBack: () -> Unit) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 10.dp)) {
             SectionTitle(stringResource(R.string.final_board))
             HexBoard(index, comp.board)
+            if (index.teamCode(comp) != null) {
+                OutlinedButton(
+                    onClick = { copyTeamCode(context, index, comp) },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                ) { Text(stringResource(R.string.copy_team_code), color = Tft.Gold) }
+            }
 
             // Carries with their items, tappable for details.
             val carries = comp.board.filter { it.items.isNotEmpty() }

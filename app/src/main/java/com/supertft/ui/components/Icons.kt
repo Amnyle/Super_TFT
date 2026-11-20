@@ -19,6 +19,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
@@ -157,3 +158,20 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
         letterSpacing = 1.sp, modifier = modifier.padding(top = 14.dp, bottom = 6.dp),
     )
 }
+
+/** Pin toggle: a pinned comp stays visible in the small overlay and its team code is copied. */
+@Composable
+fun PinButton(pinned: Boolean, onClick: () -> Unit) {
+    Text(
+        "📌", fontSize = 18.sp,
+        color = Color.Unspecified,
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .background(if (pinned) Tft.Gold.copy(alpha = 0.25f) else Color.Transparent, RoundedCornerShape(8.dp))
+            .border(1.dp, if (pinned) Tft.Gold else Color.Transparent, RoundedCornerShape(8.dp))
+            .padding(horizontal = 6.dp, vertical = 4.dp)
+            .let { if (pinned) it else it.alphaCompat(0.45f) },
+    )
+}
+
+private fun Modifier.alphaCompat(a: Float) = this.then(Modifier.graphicsLayer(alpha = a))

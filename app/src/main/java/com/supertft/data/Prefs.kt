@@ -13,6 +13,10 @@ object Prefs {
     private val _favorites = MutableStateFlow<Set<String>>(emptySet())
     val favorites: StateFlow<Set<String>> = _favorites.asStateFlow()
 
+    private val _pinned = MutableStateFlow<String?>(null)
+    /** Comp shown in the small always-visible overlay (one at a time). */
+    val pinned: StateFlow<String?> = _pinned.asStateFlow()
+
     private val _overlayOpacity = MutableStateFlow(0.96f)
     val overlayOpacity: StateFlow<Float> = _overlayOpacity.asStateFlow()
 
@@ -21,6 +25,7 @@ object Prefs {
         val p = prefs()
         _favorites.value = p.getStringSet("favorites", emptySet())!!.toSet()
         _overlayOpacity.value = p.getFloat("overlay_opacity", 0.96f)
+        _pinned.value = p.getString("pinned", null)
     }
 
     private fun prefs() = ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
@@ -29,6 +34,11 @@ object Prefs {
         val next = _favorites.value.toMutableSet().apply { if (!add(compId)) remove(compId) }
         _favorites.value = next
         prefs().edit().putStringSet("favorites", next).apply()
+    }
+
+    fun setPinned(compId: String?) {
+        _pinned.value = compId
+        prefs().edit().putString("pinned", compId).apply()
     }
 
     fun setOverlayOpacity(value: Float) {
