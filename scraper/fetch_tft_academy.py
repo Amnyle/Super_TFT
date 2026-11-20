@@ -8,6 +8,7 @@ Only public guides (isPublic != false) are kept. The output has a stable
 """
 import hashlib
 import json
+import os
 import re
 import sys
 import time
@@ -198,6 +199,7 @@ def main(out_path):
     data["hash"] = hashlib.sha256(body.encode()).hexdigest()[:16]
     data["generatedAt"] = int(time.time())
 
+    os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
     print(
