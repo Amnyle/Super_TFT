@@ -1,0 +1,50 @@
+# Fetches TFT Academy data every 3 hours and publishes it on the "data" branch.
+# The app downloads https://raw.githubusercontent.com/<repo>/data/tft.json
+name: Update TFT data
+
+on:
+  schedule:
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["scraper/**", ".github/workflows/data.yml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch TFT Academy
+        run: python3 scraper/fetch_tft_academy.py "$RUNNER_TEMP/tft.json"
+
+      - name: Publish to data branch if changed
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          NEW_HASH=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['hash'])" "$RUNNER_TEMP/tft.json")
+          if git ls-remote --exit-code --heads origin data >/dev/null; then
+            git fetch --depth=1 origin data
+            OLD_HASH=$(git show FETCH_HEAD:tft.json | python3 -c "import json,sys;print(json.load(sys.stdin).get('hash',''))" || true)
+            if [ "$NEW_HASH" = "$OLD_HASH" ]; then
+              echo "Data unchanged ($NEW_HASH)"; exit 0
+            fi
+          fi
+          # Single-commit branch: history of a generated file is not useful and keeps clones small.
+          git checkout --orphan data-tmp
+          git rm -rf --cached . >/dev/null
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp "$RUNNER_TEMP/tft.json" tft.json
+          printf '# Generated data\n\nUpdated automatically by `.github/workflows/data.yml` from tftacademy.com. Do not edit.\n' > README.md
+          git add tft.json README.md
+          git commit -m "Update TFT data ($NEW_HASH)"
+          git push --force origin data-tmp:data

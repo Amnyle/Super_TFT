@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Gold hexagon with a stylised "S" -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#00000000" android:strokeColor="#E7B95A" android:strokeWidth="4"
+        android:pathData="M54,26 L78,40 L78,68 L54,82 L30,68 L30,40 Z" />
+    <path android:fillColor="#E7B95A"
+        android:pathData="M64,42 L48,42 Q42,42 42,48 Q42,54 48,54 L60,54 Q66,54 66,60 Q66,66 60,66 L44,66 L44,61 L60,61 Q61,61 61,60 Q61,59 60,59 L48,59 Q37,59 37,48 Q37,37 48,37 L64,37 Z" />
+</vector>
