@@ -34,6 +34,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.Recomposer
+import androidx.compose.ui.platform.AndroidUiDispatcher
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.stringResource
@@ -108,6 +110,13 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner {
     override val savedStateRegistry: SavedStateRegistry get() = savedStateController.savedStateRegistry
 
     private lateinit var wm: WindowManager
+
+    /**
+     * Recomposer owned by the service. By default each window gets one that is cancelled as soon
+     * as the window is removed, so a panel closed and reopened stayed frozen. This one lives as
+     * long as the service, so windows can be removed and re-added freely.
+     */
+    private val recomposer = Recomposer(AndroidUiDispatcher.CurrentThread)
     internal var bubble: View? = null
     private var bubbleParams: WindowManager.LayoutParams? = null
     internal var panel: View? = null
@@ -128,6 +137,7 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner {
         DataRepository.init(this)
         DataRepository.refresh(force = false)
         _running.value = true
+        lifecycleScope.launch(AndroidUiDispatcher.CurrentThread) { recomposer.runRecomposeAndApplyChanges() }
         current = this
         // Pinned comp mini overlay follows the pinned id and the data.
         lifecycleScope.launch {
@@ -320,6 +330,7 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner {
         if (mini != null || bubble == null) return
         val compose = ComposeView(this).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnLifecycleDestroyed(lifecycle))
+            setParentCompositionContext(recomposer)
             setContent {
                 val state by DataRepository.state.collectAsState()
                 val pinned by Prefs.pinned.collectAsState()
@@ -361,6 +372,7 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner {
     private fun buildPanel(): View {
         val compose = ComposeView(this).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnLifecycleDestroyed(lifecycle))
+            setParentCompositionContext(recomposer)
             setContent {
                 SuperTftTheme {
                     TftBrowser(compact = true) {
@@ -460,6 +472,7 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner {
         hideCloseTarget()
         bubble?.let { runCatching { wm.removeView(it) } }
         bubble = null
+        recomposer.cancel()
         _running.value = false
         super.onDestroy()
     }

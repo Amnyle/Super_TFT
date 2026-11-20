@@ -55,7 +55,10 @@ class OverlayTest {
     }
 
     private fun tapText(root: RootForTest, text: String) {
-        val node = nodes(root).first { n -> n.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text == text } }
+        val node = nodes(root).first { n ->
+            n.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text == text } ||
+                n.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty().contains(text)
+        }
         val b = node.boundsInRoot
         tap(root as View, b.center.x, b.center.y)
     }
@@ -77,5 +80,15 @@ class OverlayTest {
         tapText(root, "Comps")
         tapText(root, "AP Fast 9")
         assertTrue("Comp detail did not open", "FINAL BOARD" in texts(root).map { it.uppercase() })
+
+        // Close the panel with the bubble, reopen it: it must still react (it froze before).
+        tap(service.bubble!!, 10f, 10f)
+        tap(service.bubble!!, 10f, 10f)
+        val panel2 = service.panel as ViewGroup
+        val root2 = (panel2.getChildAt(0) as ViewGroup).getChildAt(0) as RootForTest
+        tapText(root2, "Back")
+        assertTrue("Back did not work after reopening", "Comps" in texts(root2))
+        tapText(root2, "Traits")
+        assertTrue("Traits tab did not open after reopening", "Adaptor" in texts(root2))
     }
 }
